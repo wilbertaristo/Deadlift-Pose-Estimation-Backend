@@ -128,13 +128,13 @@ def run_yolo_prediction(args):
       for i in range(len(rep_form)):
         # Add form for each completed rep
         x = 10
-        y = 30 + i * 25 * fontScale
+        y = int(height / 40 + i * fontScale * height / 40 * 0.7)
         if rep_form[i] >= 50:
           repColor = [0,255,0]
         else:
           repColor = [0,0,255]
 
-        cv2.putText(img, f'Rep {i+1}: {rep_form[i]}%', (x, y), font, fontScale * 0.5, repColor, lineType)
+        cv2.putText(img, f'Rep {i+1}: {rep_form[i]}%', (x, y), font, int(fontScale * 0.7), repColor, lineType)
       
       # 2. ROUNDED BACK DETECTION
       height, width, _ = img.shape
