@@ -7,7 +7,7 @@ import tensorflow as tf
 classes_path = "./detection/classes.txt"
 weights_path = "./detection/yolov4-tiny-custom_best.weights"
 testing_cfg_path = "./detection/yolov4-tiny-custom.cfg"
-model_path = "./detection/rep-counter.h5"
+model_path = "./detection/rep-counter2.h5"
 
 labels = ['up', 'down', 'nothing']
 font = cv2.FONT_HERSHEY_SIMPLEX
@@ -53,10 +53,13 @@ def run_yolo_prediction(args):
   down_bool = False
   first_up = False
   frames = 0
-  good_back = 0
-  bad_back = 0
+  # good_back = 0
+  # bad_back = 0
+  num_labels = 0
+  total_confidence = 0
   form = 100.0
   rep_form = []
+  prvs_labels = []
 
   while True:
       _,img = cap.read()
@@ -79,15 +82,18 @@ def run_yolo_prediction(args):
           prediction = model.predict(rgb, batch_size=1)
           predict_label = np.argmax(prediction, axis=-1)
           label = labels[int(predict_label)]
+          if len(prvs_labels) >= 3:
+            prvs_labels.pop(0)
+          prvs_labels.append(label)
           
-          # Identify first rep
-          if label == 'up' and not first_up:
+          # Identify first rep (two up frames in a row)
+          if prvs_labels[-2:] == ['up', 'up'] and not first_up:
               first_up = True
           # First down within the new rep
-          elif label == 'down' and first_up:
+          elif prvs_labels[-2:] == ['down', 'down'] and first_up:
               down_bool = True
           # First up within the new rep
-          elif label == 'up' and down_bool:
+          elif prvs_labels[0] == 'down' and 'down' not in prvs_labels[-2:] and down_bool:
               up_bool = True
           
           # Reset and start a new rep
@@ -96,15 +102,18 @@ def run_yolo_prediction(args):
               count += 1
               up_bool = False
               down_bool = False
-              good_back = 0
-              bad_back = 0
+              num_labels = 0
+              total_confidence = 0
+              # good_back = 0
+              # bad_back = 0
               form = 100.0
       
       # Add count text
       cv2.putText(img, f'Count: {count}', bottomLeftCornerOfText, font, fontScale, fontColor, lineType)
       
       # Good form defined as more than 70% good labels within given rep
-      if (form >= 70):
+      # Good form defined as an average confidence score of more than 0.5 within given rep
+      if (form >= 50):
         formColor = [0,255,0]
       else:
         formColor = [0,0,255]
@@ -117,7 +126,7 @@ def run_yolo_prediction(args):
         # Add form for each completed rep
         x = 10
         y = 30 + i * 25 * fontScale
-        if rep_form[i] >= 70:
+        if rep_form[i] >= 50:
           repColor = [0,255,0]
         else:
           repColor = [0,0,255]
@@ -157,24 +166,31 @@ def run_yolo_prediction(args):
           for i in indexes.flatten():
               x, y, w, h = boxes[i]
               label = str(classes[class_ids[i]])
-              confidence = str(round(confidences[i],2))
+              confidence_score = round(confidences[i],2)
+              confidence = str(confidence_score)
 
               # set red color for rounded back
               if (label == 'rounded_back'):
-                  bad_back += 1
+                  # bad_back += 1
+                  total_confidence += 1 - confidence_score
+                  num_labels += 1
                   color = [0,0,255]
                   cv2.rectangle(img, (x,y), (x+w, y+h), color, 2)
                   cv2.putText(img, f'{label}', (x, y-35), font, 1, color, 2)
                   cv2.putText(img, f'{confidence}', (x, y-5), font, 1, color, 2)
               # set green color for straight back
               elif (label == 'straight_back'):
-                  good_back += 1
+                  # good_back += 1
+                  total_confidence += confidence_score
+                  num_labels += 1
                   color = [0,255,0]
                   cv2.rectangle(img, (x,y), (x+w, y+h), color, 2)
                   cv2.putText(img, f'{label}', (x, y-35), font, 1, color, 2)
                   cv2.putText(img, f'{confidence}', (x, y-5), font, 1, color, 2)
               # rep form (percentage of frames with good labels)
-              form = round(good_back / (good_back + bad_back) * 100, 2)
+              # form = round(good_back / (good_back + bad_back) * 100, 2)
+              form = round(total_confidence / num_labels * 100, 2)
+              print(form)
       img = cv2.resize(img,(540,960))
       if args['save']:
           out.write(img)
