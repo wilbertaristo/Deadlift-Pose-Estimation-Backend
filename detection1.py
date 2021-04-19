@@ -10,12 +10,6 @@ testing_cfg_path = "./detection/yolov4-tiny-custom.cfg"
 model_path = "./detection/rep-counter2.h5"
 
 labels = ['up', 'down', 'nothing']
-font = cv2.FONT_HERSHEY_SIMPLEX
-fontScale = 2
-bottomLeftCornerOfText = (10,500)
-formPosition = (10, 500 + fontScale * 50)
-fontColor = (255,255,255)
-lineType = 2
 img_size = 256
 
 # Save images with shape (256, 256, 3)
@@ -60,6 +54,15 @@ def run_yolo_prediction(args):
   form = 100.0
   rep_form = []
   prvs_labels = []
+
+  # Initialize text style
+  height, width, _ = frame1.shape
+  font = cv2.FONT_HERSHEY_SIMPLEX
+  fontScale = 2
+  fontColor = (255,255,255)
+  lineType = 2
+  bottomLeftCornerOfText = (10, int(height - (height / 40 + fontScale * height / 40)))
+  formPosition = (10, int(height - height / 40))
 
   while True:
       _,img = cap.read()
@@ -189,8 +192,10 @@ def run_yolo_prediction(args):
                   cv2.putText(img, f'{confidence}', (x, y-5), font, 1, color, 2)
               # rep form (percentage of frames with good labels)
               # form = round(good_back / (good_back + bad_back) * 100, 2)
+
+              # rep form (average confidence of good back within the rep)
               form = round(total_confidence / num_labels * 100, 2)
-              print(form)
+
       img = cv2.resize(img,(540,960))
       if args['save']:
           out.write(img)
